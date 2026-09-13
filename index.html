@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>小说阅读</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{ --reader-font: 17px; }   /* 字号变量，由 JS 动态修改 */
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+    background:#f5f5f7;color:#1f1f1f;overflow:hidden;
+  }
+
+  /* ============ 页面容器 ============ */
+  .page{position:fixed;inset:0;display:none;flex-direction:column;background:#fff;z-index:1}
+  .page.active{display:flex;animation:pageIn .22s ease}
+  @keyframes pageIn{from{opacity:.3;transform:translateX(14px)}to{opacity:1;transform:none}}
+
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px 30px}
+
+  /* ============ 通用顶栏 ============ */
+  .bar{
+    display:flex;align-items:center;gap:8px;flex:none;
+    padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;
+    background:#fff;border-bottom:1px solid #f0f0f0;
+  }
+  .icon-btn{
+    width:36px;height:36px;flex:none;border:0;background:transparent;font-size:24px;line-height:1;
+    color:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .icon-btn:active{background:#f2f2f5}
+  .bar-title{flex:1;text-align:center;font-size:16px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-sub{font-size:12px;color:#999;min-width:36px;text-align:right;padding-right:6px}
+
+  /* ============ 通用封面图片样式 ============ */
+  .cc-cover img,
+  .book-cover img,
+  .intro-cover img{
+    width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;
+  }
+
+  /* ============ 1. 主页面 ============ */
+  #page-home{background:#f5f5f7}
+  .home-header{
+    flex:none;display:flex;align-items:flex-end;justify-content:space-between;
+    padding:calc(env(safe-area-inset-top) + 20px) 20px 10px;background:#f5f5f7;
+  }
+  .home-header h1{font-size:26px;letter-spacing:1px}
+  .home-header .icon-btn{font-size:19px;color:#666}
+
+  #page-home .scroll{padding:0 20px 30px}
+
+  .continue-card{
+    display:flex;align-items:center;gap:14px;margin-top:10px;padding:16px;
+    border-radius:18px;color:#fff;cursor:pointer;
+    background:linear-gradient(135deg,#2b2b3a,#454260);
+    box-shadow:0 12px 26px -14px rgba(0,0,0,.6);
+  }
+  .cc-cover{
+    width:52px;height:70px;flex:none;border-radius:8px;overflow:hidden;
+    background:linear-gradient(135deg,#e8543f,#f0a04b); /* 图片没加载出来时的底色 */
+  }
+  .cc-info{flex:1;min-width:0}
+  .cc-info h3{font-size:16px;margin-bottom:6px}
+  .cc-info p{font-size:12px;color:rgba(255,255,255,.65)}
+  .progress{height:4px;border-radius:2px;background:rgba(255,255,255,.22);margin-top:10px;overflow:hidden}
+  .progress span{display:block;height:100%;background:#fff;border-radius:2px}
+  .cc-btn{
+    flex:none;font-size:12px;padding:7px 12px;border-radius:14px;
+    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+  }
+
+  .sec-title{font-size:15px;color:#333;margin:26px 0 4px;font-weight:600}
+
+  .book-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 14px;margin-top:14px}
+  .book{cursor:pointer}
+  .book:active{opacity:.75}
+  .book-cover{
+    aspect-ratio:3/4;border-radius:10px;overflow:hidden;
+    box-shadow:0 8px 16px -10px rgba(0,0,0,.7);
+    background:#ddd; /* 图片没加载出来时的底色 */
+  }
+  .book-name{font-size:13px;color:#333;margin-top:8px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  /* ============ 2. 简介页 ============ */
+  .intro-head{display:flex;gap:16px;padding:22px 0 10px}
+  .intro-cover{
+    width:96px;height:132px;flex:none;border-radius:10px;overflow:hidden;
+    background:linear-gradient(135deg,#e8543f,#f0a04b); /* 图片没加载出来时的底色 */
+    box-shadow:0 14px 24px -14px rgba(0,0,0,.7);
+  }
+  .intro-meta{flex:1;min-width:0;padding-top:4px}
+  .intro-meta h2{font-size:20px;margin-bottom:8px}
+  .author{font-size:13px;color:#888;margin-bottom:12px}
+  .tags span{
+    display:inline-block;font-size:11px;color:#d94f3d;background:#fdecea;
+    padding:3px 9px;border-radius:10px;margin-right:6px;
+  }
+  .stat{font-size:12px;color:#999;margin-top:12px}
+  .stat b{color:#d94f3d}
+
+  .intro-body{margin-top:18px;padding-top:18px;border-top:1px solid #f2f2f2}
+  .intro-body h3{font-size:15px;margin-bottom:12px;font-weight:600}
+  .intro-body p{font-size:14px;line-height:1.9;color:#555;text-align:justify}
+
+  .bottom-bar{
+    flex:none;display:flex;gap:12px;
+    padding:12px 20px calc(env(safe-area-inset-bottom) + 12px);
+    background:#fff;border-top:1px solid #f0f0f0;
+  }
+  .btn{height:46px;border:0;border-radius:23px;font-size:15px;font-weight:600;cursor:pointer}
+  .btn:active{opacity:.85}
+  .btn.primary{flex:1;background:#d94f3d;color:#fff}
+  .btn.ghost{flex:0 0 96px;background:#f2f2f5;color:#333}
+
+  /* ============ 3. 目录页 ============ */
+  .toc-list{list-style:none;padding-top:4px}
+  .toc-item{
+    display:flex;align-items:center;gap:12px;padding:16px 2px;
+    border-bottom:1px solid #f4f4f4;font-size:15px;color:#333;cursor:pointer;
+  }
+  .toc-item:active{background:#fafafa}
+  .toc-item.active{color:#d94f3d;font-weight:600}
+  .toc-index{width:24px;flex:none;font-size:12px;color:#c2c2c2;font-family:ui-monospace,monospace}
+  .toc-item.active .toc-index{color:#d94f3d}
+  .toc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .toc-empty{text-align:center;color:#aaa;font-size:14px;padding:60px 20px;line-height:2}
+
+  /* ============ 4. 内容页（独立完整页面） ============ */
+  #page-content{background:#f7f4ee}
+
+  #page-content .bar{
+    background:#f7f4ee;border-bottom:1px solid #ece7dd;
+  }
+  #page-content .icon-btn{color:#5a5650}
+  #page-content .bar-title{color:#2f2c28}
+
+  /* 字号按钮 */
+  .font-btn{
+    font-size:15px;font-weight:600;letter-spacing:0;
+    font-family:Georgia,serif;
+  }
+
+  /* 字号面板 */
+  .font-panel{
+    position:absolute;
+    top:calc(env(safe-area-inset-top) + 62px);
+    right:16px;
+    z-index:20;
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px;
+    border-radius:26px;
+    background:#fff;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,.32);
+    border:1px solid #ece7dd;
+    animation:panelIn .18s ease;
+  }
+  @keyframes panelIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  .font-panel[hidden]{display:none}
+
+  .font-panel button{
+    width:38px;height:38px;border:0;border-radius:50%;
+    background:#f2f0ea;color:#3a352e;font-size:14px;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .font-panel button:active{background:#e5e2da}
+  .font-panel button:disabled{opacity:.35;cursor:not-allowed}
+
+  .font-size-val{
+    min-width:44px;text-align:center;
+    font-size:14px;color:#5a5650;font-family:ui-monospace,monospace;
+  }
+
+  /* 阅读区 */
+  .read-scroll{
+    padding:24px 24px calc(env(safe-area-inset-bottom) + 24px);
+  }
+  .chapter-h{
+    font-family:"Songti SC","STSong",Georgia,serif;
+    font-size:calc(var(--reader-font) + 3px);
+    font-weight:700;letter-spacing:1px;
+    margin:6px 0 24px;color:#2f2c28;
+  }
+  .content p{
+    font-family:"Songti SC","STSong",Georgia,serif;
+    font-size:var(--reader-font);
+    line-height:2;text-indent:2em;margin-bottom:14px;
+    color:#2f2c28;text-align:justify;
+    transition:font-size .16s ease;
+  }
+  .content p.plain{
+    text-indent:0;color:#999;font-family:inherit;
+    font-size:14px;transition:none;
+  }
+
+  /* 内容页底部操作栏 */
+  .reader-foot{
+    flex:none;display:flex;gap:8px;
+    padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
+    background:#f7f4ee;border-top:1px solid #ece7dd;
+  }
+  .reader-foot button{
+    flex:1;height:42px;border:0;border-radius:12px;background:transparent;
+    font-size:14px;color:#5a5650;cursor:pointer;
+  }
+  .reader-foot button:active{background:rgba(0,0,0,.05)}
+
+  /* Toast */
+  #toast{
+    position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(10px);
+    background:rgba(0,0,0,.78);color:#fff;font-size:13px;padding:9px 18px;border-radius:20px;
+    opacity:0;pointer-events:none;transition:.25s;z-index:99;white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ================= 1. 主页面 ================= -->
+<section class="page active" id="page-home">
+  <header class="home-header">
+    <h1>书架</h1>
+    <button class="icon-btn">&#9788;</button>
+  </header>
+
+  <div class="scroll">
+    <!-- 继续阅读卡片：封面图片 -->
+    <div class="continue-card" onclick="go('page-intro')">
+      <div class="cc-cover">
+        <!-- ★★★ 改这里：主封面图片路径 ★★★ -->
+        <img src="武神录：命咒之凰.png" alt="主封面" onerror="this.style.display='none'">
+      </div>
+      <div class="cc-info">
+        <h3 data-book-title>武神录：命咒之凰</h3>
+        <p id="ccProgress">上次读到 · 第一章</p>
+        <div class="progress"><span style="width:35%"></span></div>
+      </div>
+      <div class="cc-btn">继续</div>
+    </div>
+
+    <h2 class="sec-title">全部书籍</h2>
+    <div class="book-grid">
+      <!-- 书1 -->
+      <div class="book" onclick="go('page-intro')">
+        <div class="book-cover">
+          <img src="武神录：命咒之凰.png" alt="武神录：命咒之凰" onerror="this.style.display='none'">
+        </div>
+        <div class="book-name" data-book-title>武神录：命咒之凰</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ================= 2. 小说简介页 ================= -->
+<section class="page" id="page-intro">
+  <header class="bar">
+    <button class="icon-btn" onclick="go('page-home')">&#8249;</button>
+    <span class="bar-title">书籍详情</span>
+    <span class="bar-sub"></span>
+  </header>
+
+  <div class="scroll">
+    <div class="intro-head">
+      <!-- 简介页封面图片 -->
+      <div class="intro-cover">
+        <!-- ★★★ 改这里：主封面图片路径 ★★★ -->
+        <img src="武神录：命咒之凰.png" alt="封面" onerror="this.style.display='none'">
+      </div>
+      <div class="intro-meta">
+        <h2 data-book-title>武神录：命咒之凰</h2>
+        <p class="author" data-book-author>作者：无声</p>
+        <p class="tags" id="introTags"></p>
+        <p class="stat">共 <b id="introChapters">3</b> 章 · 连载中</p>
+      </div>
+    </div>
+
+    <div class="intro-body">
+      <h3>简介</h3>
+      <p id="introText"></p>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn ghost" onclick="go('page-toc')">目录</button>
+    <button class="btn primary" onclick="openChapter(0)">开始阅读</button>
+  </div>
+</section>
+
+
+<!-- ================= 3. 目录页 ================= -->
+<section class="page" id="page-toc">
+  <header class="bar">
+    <button class="icon-btn" onclick="go('page-intro')">&#8249;</button>
+    <span class="bar-title">目录</span>
+    <span class="bar-sub" id="tocCount"></span>
+  </header>
+
+  <div class="scroll">
+    <ul class="toc-list" id="tocList"></ul>
+  </div>
+</section>
+
+
+<!-- ================= 4. 内容页（独立完整页面） ================= -->
+<section class="page" id="page-content">
+
+  <header class="bar">
+    <button class="icon-btn" onclick="go('page-toc')">&#8249;</button>
+    <span class="bar-title" id="chapterTitle">章节名</span>
+    <button class="icon-btn font-btn" onclick="toggleFontPanel(event)" title="调整字号">Aa</button>
+  </header>
+
+  <div class="font-panel" id="fontPanel" hidden onclick="event.stopPropagation()">
+    <button id="fontMinus" onclick="changeFontSize(-1)">A－</button>
+    <span class="font-size-val" id="fontSizeLabel">17</span>
+    <button id="fontPlus" onclick="changeFontSize(1)">A＋</button>
+  </div>
+
+  <div class="scroll read-scroll" id="readArea" onclick="closeFontPanel()">
+    <h2 class="chapter-h" id="chapterHead">章节名</h2>
+    <div class="content" id="contentBody"></div>
+  </div>
+
+  <footer class="reader-foot">
+    <button onclick="prevChapter()">上一章</button>
+    <button onclick="go('page-toc')">目录</button>
+    <button onclick="nextChapter()">下一章</button>
+  </footer>
+</section>
+
+
+<!-- ============================================================
+     ★ 加载目录清单
+     ============================================================ -->
+<script src="toc.js"></script>
+
+<script>
+/* ================================================================
+   ① 小说信息（简介页用）—— 就改这里
+   ================================================================ */
+const bookInfo = {
+  title:  "武神录：命咒之凰",
+  author: "无声",
+  tags:   ["玄幻", "连载中"],
+  intro:  "被命运诅咒之子，被命运选中之人，是明是暗皆有他一个定夺"
+};
+
+const TOC = window.NOVEL_TOC || [];
+
+const $ = s => document.querySelector(s);
+let currentIndex = 0;
+const chapterCache = {};
+
+/* ---------- 页面切换 ---------- */
+function go(pageId){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  closeFontPanel();
+}
+
+/* ---------- 渲染目录 ---------- */
+function renderToc(){
+  if(!TOC.length){
+    $('#tocList').innerHTML =
+      '<li class="toc-empty">还没有章节<br>请在 <b>toc.js</b> 里添加章节</li>';
+    $('#tocCount').textContent = '';
+    $('#introChapters').textContent = '0';
+    return;
+  }
+  $('#tocList').innerHTML = TOC.map((c, i) => `
+    <li class="toc-item" data-index="${i}" onclick="openChapter(${i})">
+      <span class="toc-index">${String(i + 1).padStart(2, '0')}</span>
+      <span class="toc-name">${c.title}</span>
+    </li>
+  `).join('');
+  $('#tocCount').textContent = '共 ' + TOC.length + ' 章';
+  $('#introChapters').textContent = TOC.length;
+}
+
+/* ---------- 从外部文件加载某一章正文 ---------- */
+function fetchChapter(index){
+  if(chapterCache[index] !== undefined) return Promise.resolve(chapterCache[index]);
+
+  const meta = TOC[index];
+  if(!meta || !meta.file) return Promise.reject(new Error('章节配置缺失'));
+
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = meta.file;
+    s.onload = () => {
+      const text = window.__CHAPTER_TEXT__;
+      window.__CHAPTER_TEXT__ = undefined;
+      if(typeof text !== 'string'){
+        reject(new Error('文件格式不对：' + meta.file));
+        return;
+      }
+      chapterCache[index] = text;
+      resolve(text);
+    };
+    s.onerror = () => reject(new Error('找不到文件：' + meta.file));
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------- 把正文渲染成段落 ---------- */
+function renderContent(text){
+  const body = $('#contentBody');
+  if(!text.trim()){
+    body.innerHTML = '<p class="plain">（本章暂无内容）</p>';
+    return;
+  }
+  body.innerHTML = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length)
+    .map(line => `<p>${line}</p>`)
+    .join('');
+}
+
+/* ---------- 打开某一章 ---------- */
+async function openChapter(i){
+  if(i < 0 || i >= TOC.length) return;
+  currentIndex = i;
+
+  document.querySelectorAll('.toc-item').forEach((el, idx) => {
+    el.classList.toggle('active', idx === i);
+  });
+
+  go('page-content');
+  $('#readArea').scrollTop = 0;
+
+  $('#chapterTitle').textContent = TOC[i].title;
+  $('#chapterHead').textContent  = TOC[i].title;
+  $('#contentBody').innerHTML    = '<p class="plain">加载中…</p>';
+
+  try {
+    const text = await fetchChapter(i);
+    if(currentIndex !== i) return;
+    renderContent(text);
+  } catch(err){
+    if(currentIndex !== i) return;
+    $('#contentBody').innerHTML = `<p class="plain" style="color:#c33">${err.message}</p>`;
+  }
+}
+
+/* ---------- 上一章 / 下一章 ---------- */
+function prevChapter(){
+  if(currentIndex > 0) openChapter(currentIndex - 1);
+  else toast('已经是第一章了');
+}
+function nextChapter(){
+  if(currentIndex < TOC.length - 1) openChapter(currentIndex + 1);
+  else toast('已经是最后一章了');
+}
+
+/* ================================================================
+   ★★★ 字号调整功能 ★★★
+   ================================================================ */
+const FONT_MIN = 14;
+const FONT_MAX = 26;
+const FONT_KEY = 'readerFontSize';
+
+let fontSize = parseInt(localStorage.getItem(FONT_KEY) || '17', 10);
+if(isNaN(fontSize)) fontSize = 17;
+fontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, fontSize));
+
+function applyFontSize(){
+  document.documentElement.style.setProperty('--reader-font', fontSize + 'px');
+  $('#fontSizeLabel').textContent = fontSize;
+  $('#fontMinus').disabled = (fontSize <= FONT_MIN);
+  $('#fontPlus').disabled  = (fontSize >= FONT_MAX);
+  try { localStorage.setItem(FONT_KEY, fontSize); } catch(e){}
+}
+
+function changeFontSize(delta){
+  const next = fontSize + delta;
+  if(next < FONT_MIN){ toast('已经是最小字号'); return; }
+  if(next > FONT_MAX){ toast('已经是最大字号'); return; }
+  fontSize = next;
+  applyFontSize();
+}
+
+function toggleFontPanel(e){
+  if(e) e.stopPropagation();
+  const panel = $('#fontPanel');
+  panel.hidden = !panel.hidden;
+}
+function closeFontPanel(){
+  $('#fontPanel').hidden = true;
+}
+
+document.addEventListener('click', e => {
+  const panel = $('#fontPanel');
+  if(panel && !panel.hidden && !panel.contains(e.target)){
+    panel.hidden = true;
+  }
+});
+
+/* ---------- 轻提示 ---------- */
+let toastTimer;
+function toast(msg){
+  let t = document.getElementById('toast');
+  if(!t){ t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+/* ---------- 初始化 ---------- */
+function initBook(){
+  document.querySelectorAll('[data-book-title]').forEach(el => el.textContent = bookInfo.title);
+  document.querySelectorAll('[data-book-author]').forEach(el => el.textContent = '作者：' + bookInfo.author);
+  $('#introText').textContent = bookInfo.intro;
+  $('#introTags').innerHTML = bookInfo.tags.map(t => `<span>${t}</span>`).join('');
+  renderToc();
+  applyFontSize();
+}
+
+initBook();
+</script>
+</body>
+</html>
