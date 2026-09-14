@@ -3,24 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>小说阅读</title>
+<title>小说阅读 · 仿真翻页</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{ --reader-font: 17px; }   /* 字号变量，由 JS 动态修改 */
+  html{
+    --reader-font: 17px;
+    --reader-bg: #f7f4ee;
+    --reader-text: #2f2c28;
+    --page-back: #efeae2;
+    --reader-shadow: rgba(0,0,0,.12);
+  }
+  html.dark{
+    --reader-bg: #1a1a1c;
+    --reader-text: #c8c3bb;
+    --page-back: #2a2a2e;
+    --reader-shadow: rgba(0,0,0,.5);
+  }
   html,body{height:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
     background:#f5f5f7;color:#1f1f1f;overflow:hidden;
   }
 
-  /* ============ 页面容器 ============ */
   .page{position:fixed;inset:0;display:none;flex-direction:column;background:#fff;z-index:1}
   .page.active{display:flex;animation:pageIn .22s ease}
   @keyframes pageIn{from{opacity:.3;transform:translateX(14px)}to{opacity:1;transform:none}}
 
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px 30px}
 
-  /* ============ 通用顶栏 ============ */
   .bar{
     display:flex;align-items:center;gap:8px;flex:none;
     padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;
@@ -35,14 +45,10 @@
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bar-sub{font-size:12px;color:#999;min-width:36px;text-align:right;padding-right:6px}
 
-  /* ============ 通用封面图片样式 ============ */
-  .cc-cover img,
-  .book-cover img,
-  .intro-cover img{
+  .cc-cover img,.book-cover img,.intro-cover img{
     width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;
   }
 
-  /* ============ 1. 主页面 ============ */
   #page-home{background:#f5f5f7}
   .home-header{
     flex:none;display:flex;align-items:flex-end;justify-content:space-between;
@@ -61,7 +67,7 @@
   }
   .cc-cover{
     width:52px;height:70px;flex:none;border-radius:8px;overflow:hidden;
-    background:linear-gradient(135deg,#e8543f,#f0a04b); /* 图片没加载出来时的底色 */
+    background:linear-gradient(135deg,#e8543f,#f0a04b);
   }
   .cc-info{flex:1;min-width:0}
   .cc-info h3{font-size:16px;margin-bottom:6px}
@@ -81,16 +87,15 @@
   .book-cover{
     aspect-ratio:3/4;border-radius:10px;overflow:hidden;
     box-shadow:0 8px 16px -10px rgba(0,0,0,.7);
-    background:#ddd; /* 图片没加载出来时的底色 */
+    background:#ddd;
   }
   .book-name{font-size:13px;color:#333;margin-top:8px;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
 
-  /* ============ 2. 简介页 ============ */
   .intro-head{display:flex;gap:16px;padding:22px 0 10px}
   .intro-cover{
     width:96px;height:132px;flex:none;border-radius:10px;overflow:hidden;
-    background:linear-gradient(135deg,#e8543f,#f0a04b); /* 图片没加载出来时的底色 */
+    background:linear-gradient(135deg,#e8543f,#f0a04b);
     box-shadow:0 14px 24px -14px rgba(0,0,0,.7);
   }
   .intro-meta{flex:1;min-width:0;padding-top:4px}
@@ -117,7 +122,6 @@
   .btn.primary{flex:1;background:#d94f3d;color:#fff}
   .btn.ghost{flex:0 0 96px;background:#f2f2f5;color:#333}
 
-  /* ============ 3. 目录页 ============ */
   .toc-list{list-style:none;padding-top:4px}
   .toc-item{
     display:flex;align-items:center;gap:12px;padding:16px 2px;
@@ -131,86 +135,265 @@
 
   .toc-empty{text-align:center;color:#aaa;font-size:14px;padding:60px 20px;line-height:2}
 
-  /* ============ 4. 内容页（独立完整页面） ============ */
-  #page-content{background:#f7f4ee}
+  /* ============ 内容页 ============ */
+  #page-content{
+    background: var(--reader-bg);
+    transition: background .3s ease;
+  }
 
   #page-content .bar{
-    background:#f7f4ee;border-bottom:1px solid #ece7dd;
+    background: var(--reader-bg);
+    border-bottom: 1px solid var(--reader-shadow);
+    transition: background .3s ease, border-color .3s ease;
   }
-  #page-content .icon-btn{color:#5a5650}
-  #page-content .bar-title{color:#2f2c28}
+  #page-content .icon-btn{color: var(--reader-text); transition: color .3s;}
+  #page-content .bar-title{color: var(--reader-text); transition: color .3s;}
+  #page-content .font-btn{ color: var(--reader-text); }
 
-  /* 字号按钮 */
-  .font-btn{
-    font-size:15px;font-weight:600;letter-spacing:0;
-    font-family:Georgia,serif;
+  .bar-actions{display:flex;align-items:center;gap:2px;flex:none}
+
+  .theme-btn{
+    font-size: 19px;
+    width: 36px;height: 36px;
+    display: flex;align-items: center;justify-content: center;
+    border-radius: 50%;border: 0;background: transparent;
+    color: var(--reader-text);
+    cursor: pointer;
+    transition: background .2s, color .3s, transform .3s;
+  }
+  .theme-btn:active{background: rgba(0,0,0,.06); transform: scale(.92);}
+
+  /* 阅读区 - 仿真翻页容器 */
+  .reader-viewport{
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    perspective: 2200px;
+    perspective-origin: 50% 50%;
+    background: var(--reader-bg);
+    touch-action: pan-y;
+    transition: background .3s;
   }
 
-  /* 字号面板 */
+  /* 书脊阴影 */
+  .reader-viewport::before{
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 26px;
+    background: linear-gradient(to right, var(--reader-shadow), transparent);
+    pointer-events: none;
+    z-index: 20;
+    opacity: .8;
+  }
+
+  .flip-pages{
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+
+  .flip-page{
+    position: absolute;
+    inset: 0;
+    transform-origin: left center;
+    transform-style: preserve-3d;
+    transform: rotateY(0deg);
+    transition: transform .75s cubic-bezier(.42,.02,.28,1);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  .flip-page.flipped{
+    transform: rotateY(-180deg);
+  }
+
+  .page-face{
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    overflow: hidden;
+    background: var(--reader-bg);
+    transition: background .3s;
+  }
+
+  .page-front{
+    display: flex;
+    flex-direction: column;
+    padding: 24px 24px 24px;
+    box-shadow: inset -12px 0 18px -14px var(--reader-shadow);
+  }
+  .page-front::after{
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 22px;
+    background: linear-gradient(to left, var(--reader-shadow), transparent 85%);
+    opacity: .35;
+    pointer-events: none;
+  }
+
+  .page-back{
+    transform: rotateY(180deg);
+    background: var(--page-back);
+    box-shadow: inset 12px 0 18px -14px var(--reader-shadow);
+  }
+
+  .chapter-h{
+    font-family:"Songti SC","STSong",Georgia,serif;
+    font-size:calc(var(--reader-font) + 3px);
+    font-weight:700;
+    letter-spacing:1px;
+    margin: 0 0 18px;
+    color: var(--reader-text);
+    transition: color .3s, font-size .15s;
+    flex: none;
+  }
+
+  .content{
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .content p{
+    font-family:"Songti SC","STSong",Georgia,serif;
+    font-size: var(--reader-font);
+    line-height: 2;
+    text-indent: 2em;
+    margin: 0 0 14px;
+    color: var(--reader-text);
+    text-align: justify;
+    transition: color .3s, font-size .15s;
+    word-break: break-word;
+  }
+
+  .content p.plain{
+    text-indent:0;
+    color: #999;
+    font-family:inherit;
+    font-size:14px;
+  }
+
+  .nav-arrow{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;height: 46px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0,0,0,.10);
+    color: var(--reader-text);
+    font-size: 26px;
+    display: flex;align-items: center;justify-content: center;
+    cursor: pointer;
+    z-index: 30;
+    backdrop-filter: blur(6px);
+    transition: opacity .25s, background .2s, color .3s;
+    opacity: .55;
+  }
+  .nav-arrow:active{background: rgba(0,0,0,.22);}
+  .nav-arrow.prev{left: 10px;}
+  .nav-arrow.next{right: 10px;}
+  /* 注意：箭头"隐藏"当且仅当对应方向完全没有内容（第一章第一页/最后一章最后一页） */
+  .nav-arrow.hidden{opacity: 0;pointer-events: none;}
+
+  .reader-foot{
+    flex:none;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 14px calc(env(safe-area-inset-bottom) + 8px);
+    background: var(--reader-bg);
+    border-top: 1px solid var(--reader-shadow);
+    transition: background .3s, border-color .3s;
+  }
+
+  .progress-line{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 4px 10px;
+  }
+  .progress-bar-bg{
+    flex: 1;
+    height: 6px;
+    background: rgba(128,128,128,.25);
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background .3s;
+  }
+  .progress-fill{
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg,#d94f3d,#e8724a);
+    border-radius: 3px;
+    transition: width .25s ease;
+  }
+  .progress-text{
+    font-size: 12px;
+    color: var(--reader-text);
+    font-family: ui-monospace,monospace;
+    min-width: 62px;
+    text-align: right;
+    opacity: .75;
+    transition: color .3s;
+    letter-spacing: .5px;
+  }
+
+  .foot-buttons{
+    display: flex;
+    gap: 8px;
+  }
+  .foot-buttons button{
+    flex:1;
+    height:42px;
+    border:0;
+    border-radius:12px;
+    background:transparent;
+    font-size:14px;
+    color: var(--reader-text);
+    cursor:pointer;
+    transition: background .2s, color .3s;
+  }
+  .foot-buttons button:active{
+    background: rgba(128,128,128,.12);
+  }
+
   .font-panel{
     position:absolute;
     top:calc(env(safe-area-inset-top) + 62px);
     right:16px;
-    z-index:20;
+    z-index:40;
     display:flex;align-items:center;gap:10px;
     padding:10px 14px;
     border-radius:26px;
-    background:#fff;
-    box-shadow:0 12px 30px -10px rgba(0,0,0,.32);
-    border:1px solid #ece7dd;
+    background: var(--reader-bg);
+    box-shadow:0 12px 30px -10px var(--reader-shadow);
+    border:1px solid var(--reader-shadow);
     animation:panelIn .18s ease;
+    transition: background .3s, border-color .3s;
   }
   @keyframes panelIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   .font-panel[hidden]{display:none}
 
   .font-panel button{
     width:38px;height:38px;border:0;border-radius:50%;
-    background:#f2f0ea;color:#3a352e;font-size:14px;font-weight:700;
+    background: rgba(128,128,128,.15);
+    color: var(--reader-text);
+    font-size:14px;font-weight:700;
     cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition: background .2s, color .3s;
   }
-  .font-panel button:active{background:#e5e2da}
-  .font-panel button:disabled{opacity:.35;cursor:not-allowed}
+  .font-panel button:active{background: rgba(128,128,128,.3);}
+  .font-panel button:disabled{opacity:.35;cursor:not-allowed;}
 
   .font-size-val{
     min-width:44px;text-align:center;
-    font-size:14px;color:#5a5650;font-family:ui-monospace,monospace;
+    font-size:14px;
+    color: var(--reader-text);
+    font-family:ui-monospace,monospace;
+    transition: color .3s;
   }
 
-  /* 阅读区 */
-  .read-scroll{
-    padding:24px 24px calc(env(safe-area-inset-bottom) + 24px);
-  }
-  .chapter-h{
-    font-family:"Songti SC","STSong",Georgia,serif;
-    font-size:calc(var(--reader-font) + 3px);
-    font-weight:700;letter-spacing:1px;
-    margin:6px 0 24px;color:#2f2c28;
-  }
-  .content p{
-    font-family:"Songti SC","STSong",Georgia,serif;
-    font-size:var(--reader-font);
-    line-height:2;text-indent:2em;margin-bottom:14px;
-    color:#2f2c28;text-align:justify;
-    transition:font-size .16s ease;
-  }
-  .content p.plain{
-    text-indent:0;color:#999;font-family:inherit;
-    font-size:14px;transition:none;
-  }
-
-  /* 内容页底部操作栏 */
-  .reader-foot{
-    flex:none;display:flex;gap:8px;
-    padding:10px 14px calc(env(safe-area-inset-bottom) + 10px);
-    background:#f7f4ee;border-top:1px solid #ece7dd;
-  }
-  .reader-foot button{
-    flex:1;height:42px;border:0;border-radius:12px;background:transparent;
-    font-size:14px;color:#5a5650;cursor:pointer;
-  }
-  .reader-foot button:active{background:rgba(0,0,0,.05)}
-
-  /* Toast */
   #toast{
     position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(10px);
     background:rgba(0,0,0,.78);color:#fff;font-size:13px;padding:9px 18px;border-radius:20px;
@@ -229,10 +412,8 @@
   </header>
 
   <div class="scroll">
-    <!-- 继续阅读卡片：封面图片 -->
     <div class="continue-card" onclick="go('page-intro')">
       <div class="cc-cover">
-        <!-- ★★★ 改这里：主封面图片路径 ★★★ -->
         <img src="武神录：命咒之凰.png" alt="主封面" onerror="this.style.display='none'">
       </div>
       <div class="cc-info">
@@ -245,7 +426,6 @@
 
     <h2 class="sec-title">全部书籍</h2>
     <div class="book-grid">
-      <!-- 书1 -->
       <div class="book" onclick="go('page-intro')">
         <div class="book-cover">
           <img src="武神录：命咒之凰.png" alt="武神录：命咒之凰" onerror="this.style.display='none'">
@@ -256,8 +436,7 @@
   </div>
 </section>
 
-
-<!-- ================= 2. 小说简介页 ================= -->
+<!-- ================= 2. 简介页 ================= -->
 <section class="page" id="page-intro">
   <header class="bar">
     <button class="icon-btn" onclick="go('page-home')">&#8249;</button>
@@ -267,9 +446,7 @@
 
   <div class="scroll">
     <div class="intro-head">
-      <!-- 简介页封面图片 -->
       <div class="intro-cover">
-        <!-- ★★★ 改这里：主封面图片路径 ★★★ -->
         <img src="武神录：命咒之凰.png" alt="封面" onerror="this.style.display='none'">
       </div>
       <div class="intro-meta">
@@ -292,7 +469,6 @@
   </div>
 </section>
 
-
 <!-- ================= 3. 目录页 ================= -->
 <section class="page" id="page-toc">
   <header class="bar">
@@ -306,14 +482,16 @@
   </div>
 </section>
 
-
-<!-- ================= 4. 内容页（独立完整页面） ================= -->
+<!-- ================= 4. 内容页 ================= -->
 <section class="page" id="page-content">
 
   <header class="bar">
     <button class="icon-btn" onclick="go('page-toc')">&#8249;</button>
     <span class="bar-title" id="chapterTitle">章节名</span>
-    <button class="icon-btn font-btn" onclick="toggleFontPanel(event)" title="调整字号">Aa</button>
+    <div class="bar-actions">
+      <button class="icon-btn theme-btn" id="themeBtn" onclick="toggleTheme()" title="深色/明亮">🌙</button>
+      <button class="icon-btn font-btn" onclick="toggleFontPanel(event)" title="调整字号">Aa</button>
+    </div>
   </header>
 
   <div class="font-panel" id="fontPanel" hidden onclick="event.stopPropagation()">
@@ -322,27 +500,32 @@
     <button id="fontPlus" onclick="changeFontSize(1)">A＋</button>
   </div>
 
-  <div class="scroll read-scroll" id="readArea" onclick="closeFontPanel()">
-    <h2 class="chapter-h" id="chapterHead">章节名</h2>
-    <div class="content" id="contentBody"></div>
+  <div class="reader-viewport" id="readerViewport">
+    <div class="flip-pages" id="flipPages"></div>
+    <button class="nav-arrow prev" id="prevArrow" onclick="prevPage()" aria-label="上一页">‹</button>
+    <button class="nav-arrow next" id="nextArrow" onclick="nextPage()" aria-label="下一页">›</button>
   </div>
 
   <footer class="reader-foot">
-    <button onclick="prevChapter()">上一章</button>
-    <button onclick="go('page-toc')">目录</button>
-    <button onclick="nextChapter()">下一章</button>
+    <div class="progress-line">
+      <div class="progress-bar-bg" id="progressBarBg" onclick="seekProgress(event)">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-text" id="progressText">0.0%</span>
+    </div>
+    <div class="foot-buttons">
+      <button onclick="prevChapter()">上一章</button>
+      <button onclick="go('page-toc')">目录</button>
+      <button onclick="nextChapter()">下一章</button>
+    </div>
   </footer>
 </section>
 
-
-<!-- ============================================================
-     ★ 加载目录清单
-     ============================================================ -->
 <script src="toc.js"></script>
 
 <script>
 /* ================================================================
-   ① 小说信息（简介页用）—— 就改这里
+   ① 小说信息
    ================================================================ */
 const bookInfo = {
   title:  "武神录：命咒之凰",
@@ -352,10 +535,13 @@ const bookInfo = {
 };
 
 const TOC = window.NOVEL_TOC || [];
-
 const $ = s => document.querySelector(s);
+
 let currentIndex = 0;
-const chapterCache = {};
+let pages = [];              // 当前章节分页后的段落数组
+let currentPage = 0;
+const chapterCache = {};       // 章节文本缓存
+const chapterPageCache = {};   // 各章页数缓存（用于全文进度估算）
 
 /* ---------- 页面切换 ---------- */
 function go(pageId){
@@ -383,13 +569,11 @@ function renderToc(){
   $('#introChapters').textContent = TOC.length;
 }
 
-/* ---------- 从外部文件加载某一章正文 ---------- */
+/* ---------- 加载章节文本 ---------- */
 function fetchChapter(index){
   if(chapterCache[index] !== undefined) return Promise.resolve(chapterCache[index]);
-
   const meta = TOC[index];
   if(!meta || !meta.file) return Promise.reject(new Error('章节配置缺失'));
-
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = meta.file;
@@ -408,48 +592,229 @@ function fetchChapter(index){
   });
 }
 
-/* ---------- 把正文渲染成段落 ---------- */
-function renderContent(text){
-  const body = $('#contentBody');
-  if(!text.trim()){
-    body.innerHTML = '<p class="plain">（本章暂无内容）</p>';
-    return;
+/* ================================================================
+   ② 分页
+   ================================================================ */
+function computePages(text, viewportEl){
+  const vpH = viewportEl.clientHeight;
+  const vpW = viewportEl.clientWidth;
+  const paddingTop = 24, paddingBottom = 24, paddingLR = 24;
+  const contentWidth = vpW - paddingLR * 2;
+  const titleReserved = 60;
+  const GAP = 14;
+
+  const measure = document.createElement('div');
+  measure.style.cssText = `
+    position:absolute; visibility:hidden; pointer-events:none; left:-9999px; top:0;
+    width:${contentWidth}px;
+    font-family:"Songti SC","STSong",Georgia,serif;
+    font-size:var(--reader-font);
+    line-height:2;
+  `;
+  document.body.appendChild(measure);
+
+  function measureP(txt){
+    const p = document.createElement('p');
+    p.style.cssText = `margin:0;padding:0;text-indent:2em;text-align:justify;
+      font-family:inherit;font-size:inherit;line-height:inherit;word-break:break-word;`;
+    p.textContent = txt;
+    measure.appendChild(p);
+    const h = p.offsetHeight;
+    measure.removeChild(p);
+    return h;
   }
-  body.innerHTML = text
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length)
-    .map(line => `<p>${line}</p>`)
-    .join('');
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length);
+  const paragraphs = lines.length ? lines : ['（本章暂无内容）'];
+  const heights = paragraphs.map(measureP);
+  document.body.removeChild(measure);
+
+  const pageContents = [];
+  let cur = [], curH = 0;
+  for(let i = 0; i < paragraphs.length; i++){
+    const h = heights[i];
+    const addH = (cur.length ? GAP : 0) + h;
+    const avail = (pageContents.length === 0)
+      ? (vpH - paddingTop - paddingBottom - titleReserved)
+      : (vpH - paddingTop - paddingBottom);
+    if(cur.length && curH + addH > avail){
+      pageContents.push(cur);
+      cur = [paragraphs[i]];
+      curH = h;
+    } else {
+      cur.push(paragraphs[i]);
+      curH += addH;
+    }
+  }
+  if(cur.length) pageContents.push(cur);
+  if(!pageContents.length) pageContents.push(['（本章暂无内容）']);
+
+  return pageContents;
 }
 
-/* ---------- 打开某一章 ---------- */
-async function openChapter(i){
-  if(i < 0 || i >= TOC.length) return;
-  currentIndex = i;
+function renderPages(pageContents){
+  const wrap = $('#flipPages');
+  wrap.innerHTML = '';
+  const total = pageContents.length;
 
-  document.querySelectorAll('.toc-item').forEach((el, idx) => {
-    el.classList.toggle('active', idx === i);
+  pageContents.forEach((paras, idx) => {
+    const pageEl = document.createElement('div');
+    pageEl.className = 'flip-page';
+    pageEl.style.zIndex = String(total - idx);
+
+    const front = document.createElement('div');
+    front.className = 'page-face page-front';
+    if(idx === 0){
+      const h2 = document.createElement('h2');
+      h2.className = 'chapter-h';
+      h2.textContent = TOC[currentIndex].title;
+      front.appendChild(h2);
+    }
+    const contentEl = document.createElement('div');
+    contentEl.className = 'content';
+    contentEl.innerHTML = paras.map(p => `<p>${p}</p>`).join('');
+    front.appendChild(contentEl);
+    pageEl.appendChild(front);
+
+    const back = document.createElement('div');
+    back.className = 'page-face page-back';
+    pageEl.appendChild(back);
+
+    wrap.appendChild(pageEl);
   });
 
-  go('page-content');
-  $('#readArea').scrollTop = 0;
+  pages = pageContents;
+  chapterPageCache[currentIndex] = total;
+}
 
-  $('#chapterTitle').textContent = TOC[i].title;
-  $('#chapterHead').textContent  = TOC[i].title;
-  $('#contentBody').innerHTML    = '<p class="plain">加载中…</p>';
+/* ---------- 箭头可见性 ----------
+   只在"全书最开头"隐藏左箭头；"全书最末尾"隐藏右箭头。
+   中间章节的边界仍显示箭头，因为点击后会跨章节。 */
+function updateArrows(){
+  const atVeryStart = (currentIndex === 0 && currentPage <= 0);
+  const atVeryEnd   = (currentIndex === TOC.length - 1 && currentPage >= pages.length - 1);
+  $('#prevArrow').classList.toggle('hidden', atVeryStart);
+  $('#nextArrow').classList.toggle('hidden', atVeryEnd);
+}
 
-  try {
-    const text = await fetchChapter(i);
-    if(currentIndex !== i) return;
-    renderContent(text);
-  } catch(err){
-    if(currentIndex !== i) return;
-    $('#contentBody').innerHTML = `<p class="plain" style="color:#c33">${err.message}</p>`;
+/* ---------- 全文进度百分比 ---------- */
+function updateProgress(){
+  const totalChapters = TOC.length;
+  if(totalChapters === 0){
+    $('#progressFill').style.width = '0%';
+    $('#progressText').textContent = '0.0%';
+    return;
+  }
+
+  const knownKeys = Object.keys(chapterPageCache).map(Number);
+  const knownVals = knownKeys.map(k => chapterPageCache[k]);
+  const avgPages = knownVals.length
+    ? knownVals.reduce((a,b) => a+b, 0) / knownVals.length
+    : 1;
+
+  const chapterPages = [];
+  let totalPages = 0;
+  for(let i = 0; i < totalChapters; i++){
+    const p = (chapterPageCache[i] !== undefined) ? chapterPageCache[i] : avgPages;
+    chapterPages[i] = p;
+    totalPages += p;
+  }
+
+  let readPages = 0;
+  for(let i = 0; i < currentIndex; i++) readPages += chapterPages[i];
+  const curTotal = pages.length || 1;
+  readPages += ((currentPage + 1) / curTotal) * chapterPages[currentIndex];
+
+  let progress = totalPages > 0 ? (readPages / totalPages) * 100 : 0;
+  progress = Math.max(0.1, Math.min(100, progress));
+
+  $('#progressFill').style.width = progress + '%';
+  $('#progressText').textContent = progress.toFixed(1) + '%';
+}
+
+/* ---------- 跳转到指定页 ---------- */
+function goToPage(index, instant){
+  if(index < 0) index = 0;
+  if(index > pages.length - 1) index = pages.length - 1;
+  if(index === currentPage && !instant) return;
+
+  const allPages = document.querySelectorAll('.flip-page');
+  const oldPage = currentPage;
+  currentPage = index;
+
+  if(instant){
+    allPages.forEach((el, i) => {
+      el.style.transition = 'none';
+      if(i < index) el.classList.add('flipped');
+      else el.classList.remove('flipped');
+    });
+    void document.body.offsetWidth;
+    allPages.forEach(el => el.style.transition = '');
+  } else {
+    if(index > oldPage){
+      for(let i = oldPage; i < index; i++){
+        setTimeout(() => allPages[i].classList.add('flipped'), (i - oldPage) * 60);
+      }
+    } else {
+      for(let i = oldPage - 1; i >= index; i--){
+        setTimeout(() => allPages[i].classList.remove('flipped'), (oldPage - 1 - i) * 60);
+      }
+    }
+  }
+
+  updateArrows();
+  updateProgress();
+}
+
+/* ================================================================
+   ③ 翻页（含跨章联动）
+   ================================================================ */
+const FLIP_MS = 750;   // 与 CSS transition 时长一致
+const CHAPTER_GAP = 520; // 跨章时等待翻页完成再加载下一章
+
+/* 让当前最后一页翻出去，然后加载下一章 */
+function flipToNextChapter(){
+  const allPages = document.querySelectorAll('.flip-page');
+  const last = allPages[allPages.length - 1];
+  if(last && !last.classList.contains('flipped')){
+    last.classList.add('flipped');
+    setTimeout(() => openChapter(currentIndex + 1), CHAPTER_GAP);
+  } else {
+    openChapter(currentIndex + 1);
   }
 }
 
-/* ---------- 上一章 / 下一章 ---------- */
+/* 让当前第一页转回来，然后加载上一章最后一页 */
+function flipToPrevChapter(){
+  const allPages = document.querySelectorAll('.flip-page');
+  const first = allPages[0];
+  // 若第一页还没被翻过，先让它呈现"翻过去"再转回来会更自然
+  // 但当前就是第一页，它本来就是未翻转状态
+  // 直接让下一章加载（上一章的最后一页会是翻转状态）
+  openChapter(currentIndex - 1, { jumpToLast: true });
+}
+
+function prevPage(){
+  if(currentPage > 0){
+    goToPage(currentPage - 1);
+  } else if(currentIndex > 0){
+    flipToPrevChapter();
+  } else {
+    toast('已经是第一页了');
+  }
+}
+
+function nextPage(){
+  if(currentPage < pages.length - 1){
+    goToPage(currentPage + 1);
+  } else if(currentIndex < TOC.length - 1){
+    flipToNextChapter();
+  } else {
+    toast('已经是最后一页了');
+  }
+}
+
+/* ---------- 上一章 / 下一章（底部按钮，直接切） ---------- */
 function prevChapter(){
   if(currentIndex > 0) openChapter(currentIndex - 1);
   else toast('已经是第一章了');
@@ -459,13 +824,61 @@ function nextChapter(){
   else toast('已经是最后一章了');
 }
 
-/* ================================================================
-   ★★★ 字号调整功能 ★★★
-   ================================================================ */
-const FONT_MIN = 14;
-const FONT_MAX = 26;
-const FONT_KEY = 'readerFontSize';
+/* ---------- 点击进度条 ---------- */
+function seekProgress(e){
+  if(!pages.length) return;
+  const rect = $('#progressBarBg').getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const percent = Math.max(0, Math.min(1, x / rect.width));
+  const target = Math.round(percent * (pages.length - 1));
+  if(target !== currentPage) goToPage(target);
+}
 
+/* ================================================================
+   ④ 打开某一章
+   ================================================================ */
+async function openChapter(i, opts){
+  opts = opts || {};
+  if(i < 0 || i >= TOC.length) return;
+  currentIndex = i;
+  currentPage = 0;
+
+  $('#chapterTitle').textContent = TOC[i].title;
+
+  go('page-content');
+  $('#flipPages').innerHTML = '<div class="flip-page" style="z-index:1"><div class="page-face page-front"><div class="content"><p class="plain">加载中…</p></div></div><div class="page-face page-back"></div></div>';
+  pages = [];
+
+  try {
+    const text = await fetchChapter(i);
+    if(currentIndex !== i) return;
+
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const pageContents = computePages(text, $('#readerViewport'));
+    renderPages(pageContents);
+
+    if(opts.jumpToLast){
+      // 打开后直接跳到最后一页（从上一章向前翻时使用）
+      goToPage(pages.length - 1, true);
+    } else {
+      currentPage = 0;
+      goToPage(0, true);
+    }
+    updateArrows();
+    updateProgress();
+  } catch(err){
+    if(currentIndex !== i) return;
+    $('#flipPages').innerHTML = `<div class="flip-page" style="z-index:1"><div class="page-face page-front"><div class="content"><p class="plain" style="color:#c33">${err.message}</p></div></div><div class="page-face page-back"></div></div>`;
+    pages = [];
+    updateArrows();
+  }
+}
+
+/* ================================================================
+   ⑤ 字号调整
+   ================================================================ */
+const FONT_MIN = 14, FONT_MAX = 26, FONT_KEY = 'readerFontSize';
 let fontSize = parseInt(localStorage.getItem(FONT_KEY) || '17', 10);
 if(isNaN(fontSize)) fontSize = 17;
 fontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, fontSize));
@@ -484,6 +897,18 @@ function changeFontSize(delta){
   if(next > FONT_MAX){ toast('已经是最大字号'); return; }
   fontSize = next;
   applyFontSize();
+
+  if(TOC.length && chapterCache[currentIndex]){
+    const oldTotal = pages.length;
+    const ratio = oldTotal > 0 ? (currentPage + 1) / oldTotal : 0;
+    requestAnimationFrame(() => {
+      const pageContents = computePages(chapterCache[currentIndex], $('#readerViewport'));
+      renderPages(pageContents);
+      const newPage = Math.min(pages.length - 1, Math.max(0, Math.round(ratio * pages.length) - 1));
+      goToPage(newPage, true);
+      updateProgress();
+    });
+  }
 }
 
 function toggleFontPanel(e){
@@ -491,16 +916,33 @@ function toggleFontPanel(e){
   const panel = $('#fontPanel');
   panel.hidden = !panel.hidden;
 }
-function closeFontPanel(){
-  $('#fontPanel').hidden = true;
-}
+function closeFontPanel(){ $('#fontPanel').hidden = true; }
 
 document.addEventListener('click', e => {
   const panel = $('#fontPanel');
-  if(panel && !panel.hidden && !panel.contains(e.target)){
+  if(panel && !panel.hidden && !panel.contains(e.target) && !e.target.closest('.font-btn')){
     panel.hidden = true;
   }
 });
+
+/* ================================================================
+   ⑥ 深色 / 明亮
+   ================================================================ */
+const THEME_KEY = 'readerThemeDark';
+let darkMode = localStorage.getItem(THEME_KEY) === 'true';
+
+function applyTheme(){
+  document.documentElement.classList.toggle('dark', darkMode);
+  const btn = $('#themeBtn');
+  if(btn) btn.textContent = darkMode ? '☀️' : '🌙';
+  try { localStorage.setItem(THEME_KEY, darkMode); } catch(e){}
+}
+
+function toggleTheme(){
+  darkMode = !darkMode;
+  applyTheme();
+  toast(darkMode ? '已切换深色模式' : '已切换明亮模式');
+}
 
 /* ---------- 轻提示 ---------- */
 let toastTimer;
@@ -513,6 +955,72 @@ function toast(msg){
   toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
 }
 
+/* ================================================================
+   ⑦ 滑动手势
+   ================================================================ */
+function initSwipe(){
+  const viewport = $('#readerViewport');
+  let startX = 0, startY = 0, isSwiping = false, locked = false;
+
+  viewport.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    isSwiping = false;
+    locked = false;
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', e => {
+    if(e.touches.length > 1 || locked) return;
+    const t = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if(!isSwiping && (Math.abs(dx) > 8 || Math.abs(dy) > 8)){
+      if(Math.abs(dx) > Math.abs(dy)){
+        isSwiping = true;
+        locked = true;
+      } else {
+        locked = true;
+      }
+    }
+    if(isSwiping) e.preventDefault();
+  }, { passive: false });
+
+  viewport.addEventListener('touchend', e => {
+    if(!isSwiping) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    if(dx > 50) prevPage();
+    else if(dx < -50) nextPage();
+    isSwiping = false;
+    locked = false;
+  }, { passive: true });
+
+  document.addEventListener('keydown', e => {
+    if($('#page-content').classList.contains('active')){
+      if(e.key === 'ArrowLeft') prevPage();
+      if(e.key === 'ArrowRight') nextPage();
+    }
+  });
+}
+
+/* ---------- 窗口尺寸变化重新分页 ---------- */
+let resizeTimer;
+window.addEventListener('resize', () => {
+  if(!$('#page-content').classList.contains('active')) return;
+  if(!chapterCache[currentIndex]) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const oldTotal = pages.length;
+    const ratio = oldTotal > 0 ? (currentPage + 1) / oldTotal : 0;
+    const pageContents = computePages(chapterCache[currentIndex], $('#readerViewport'));
+    renderPages(pageContents);
+    const newPage = Math.min(pages.length - 1, Math.max(0, Math.round(ratio * pages.length) - 1));
+    goToPage(newPage, true);
+    updateProgress();
+  }, 220);
+});
+
 /* ---------- 初始化 ---------- */
 function initBook(){
   document.querySelectorAll('[data-book-title]').forEach(el => el.textContent = bookInfo.title);
@@ -521,6 +1029,8 @@ function initBook(){
   $('#introTags').innerHTML = bookInfo.tags.map(t => `<span>${t}</span>`).join('');
   renderToc();
   applyFontSize();
+  applyTheme();
+  initSwipe();
 }
 
 initBook();
